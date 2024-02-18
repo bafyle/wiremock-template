@@ -10,6 +10,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.stubFor;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.CountDownLatch;
 
 import com.example.helper.StringLengthHelper;
 import com.example.stubber.BaseStub;
@@ -21,6 +22,7 @@ public class App
 {
     private static final int DEFAULT_PORT = 9090;
     private static WireMockServer wireMockServer;
+    private static final CountDownLatch latch = new CountDownLatch(1);
 
     /*
      * This method is for registering any stubs. All you need to do is add your class to the list
@@ -62,15 +64,16 @@ public class App
                 BaseStub instance = class_.getConstructor(wireMockServer.getClass()).newInstance(wireMockServer);
                 stubFor(instance.stub());
             }
-
-            while (true) {
-                Thread.sleep(10); // Sleep to prevent CPU hogging
+            try {
+                latch.await();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+                shutdown();
             }
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
-            wireMockServer.stop();
-            System.out.println("WireMock server stopped");
+            shutdown();
         }
     }
 
@@ -97,9 +100,14 @@ public class App
             @Override
             public void run()
             {
-                wireMockServer.stop();
-                System.out.println("WireMock server stopped");
+                shutdown();
             }
         });
+    }
+    private static void shutdown()
+    {
+        wireMockServer.stop();
+        latch.countDown();
+        System.out.println("WireMock server stopped");
     }
 }
