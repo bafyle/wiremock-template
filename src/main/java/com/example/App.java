@@ -9,7 +9,6 @@ import static com.github.tomakehurst.wiremock.client.WireMock.stubFor;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
 
 import com.example.helper.StringLengthHelper;
@@ -77,15 +76,14 @@ public class App
         }
     }
 
-    private static void setup(String[] args) throws IllegalArgumentException, IllegalAccessException
+    private static void setup(String[] args) throws IllegalArgumentException
     {
         int port = DEFAULT_PORT;
         for(int i = 0; i < args.length-1; i+=2)
         {
             var arg = args[i];
-            if(arg.equals("--port"))
+            if("--port".equals(arg))
             {
-                Objects.requireNonNull(args[i+1]);
                 port = Integer.parseInt(args[i+1]);
             }
         }
