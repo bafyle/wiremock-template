@@ -1,3 +1,4 @@
 {
-    "data":"{{now}}"
+    "data":"{{now}}",
+    "string_length":"{{string-length 'hello-world'}}"
 }

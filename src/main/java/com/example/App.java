@@ -1,52 +1,65 @@
 package com.example;
 
-
 import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.client.WireMock;
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
+import com.github.tomakehurst.wiremock.extension.Extension;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.stubFor;
 
-import java.lang.reflect.Field;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.Objects;
 
-import com.example.stubber.BaseStubber;
+import com.example.helper.StringLengthHelper;
+import com.example.stubber.BaseStub;
 import com.example.stubber.SimpleStub;
-
+import com.example.stubber.StubWithCustomTransformer;
+import com.example.trasnformer.UpperCaseTransformer;
 
 public class App 
 {
-    private static final int PORT = 8080; // Port on which the server will run
+    private static final int DEFAULT_PORT = 9090;
+    private static WireMockServer wireMockServer;
 
-    private static List<Class<? extends BaseStubber>> getStubberClasses()
+    /*
+     * This method is for registering any stubs. All you need to do is add your class to the list
+     * Note: All classes must extend the BaseStub abstract class and have a constructor with WireMockServer as parameter
+     * and call the super constructor
+     */
+    private static List<Class<? extends BaseStub>> getStubberClasses()
     {
-        List<Class<? extends BaseStubber>> classes = new ArrayList<>();
+        List<Class<? extends BaseStub>> classes = new ArrayList<>();
         classes.add(SimpleStub.class);
+        classes.add(StubWithCustomTransformer.class);
 
         return classes;
         
     }
-    public static void main(String[] args) {
-        WireMockServer wireMockServer = new WireMockServer(WireMockConfiguration.wireMockConfig().port(PORT).templatingEnabled(true));
-        Runtime.getRuntime().addShutdownHook(new Thread()
-        {
-            @Override
-            public void run()
-            {
-                wireMockServer.stop();
-                System.out.println("WireMock server stopped");
-            }
-        });
-        try {
-            wireMockServer.start();
-            System.out.println("WireMock server started on port " + PORT);
 
-            List<Class<? extends BaseStubber>> classes = getStubberClasses();
+    /*
+     * This method is for registering all extensions to WireMock, such as handlebars extensions and custom transformers.
+     * All you need to do to register a new extension is add new instance from your extension to the list
+     * Note: All instances must be instances of classes that extend the Extension class
+     */
+    private static List<Extension> getExtensions()
+    {
+        List<Extension> extensions = new ArrayList<>();
+        extensions.add(new StringLengthHelper());
+        extensions.add(new UpperCaseTransformer());
+        return extensions;
+    }
+
+    public static void main(String[] args) {
+        try {
+            setup(args);
+            wireMockServer.start();
+            System.out.println("WireMock server started on port %s".formatted(wireMockServer.port()));
+
+            List<Class<? extends BaseStub>> classes = getStubberClasses();
             for(var class_ : classes)
             {
-                BaseStubber instance = class_.getDeclaredConstructor().newInstance();
+                BaseStub instance = class_.getConstructor(wireMockServer.getClass()).newInstance(wireMockServer);
                 stubFor(instance.stub());
             }
 
@@ -61,23 +74,32 @@ public class App
         }
     }
 
-    private static Arguments parseCLArguments(String[] args)
+    private static void setup(String[] args) throws IllegalArgumentException, IllegalAccessException
     {
-        Arguments arguments = new Arguments();
-        Map<String, String> parsedArguments = new HashMap<>();
-        for(int i = 0; i < args.length - 1; i+=2)
+        int port = DEFAULT_PORT;
+        for(int i = 0; i < args.length-1; i+=2)
         {
-            parsedArguments.put(args[i], args[i+1]);
-        }
-        Field[] fields = Arguments.class.getDeclaredFields();
-        for(Field field : fields)
-        {
-            if(parsedArguments.containsKey(field.getName()))
+            var arg = args[i];
+            if(arg.equals("--port"))
             {
-                field.setAccessible(true);
-                field.set(parsedArguments, fields);
+                Objects.requireNonNull(args[i+1]);
+                port = Integer.parseInt(args[i+1]);
             }
         }
-        
+        wireMockServer = new WireMockServer(WireMockConfiguration.wireMockConfig()
+            .port(port)
+            .templatingEnabled(true)
+            .extensions(getExtensions().toArray(new Extension[0]))
+            );
+        WireMock.configureFor(port);
+        Runtime.getRuntime().addShutdownHook(new Thread()
+        {
+            @Override
+            public void run()
+            {
+                wireMockServer.stop();
+                System.out.println("WireMock server stopped");
+            }
+        });
     }
 }

@@ -5,17 +5,20 @@ import static com.github.tomakehurst.wiremock.client.WireMock.get;
 
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.UUID;
 
+import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.MappingBuilder;
 
 import wiremock.com.google.common.net.MediaType;
 
-public class SimpleStub implements BaseStubber{
+public class SimpleStub extends BaseStub{
+
+    public SimpleStub(WireMockServer wms) {
+        super(wms);
+    }
 
     @Override
     public MappingBuilder stub() throws Exception {
-        String uuid = UUID.randomUUID().toString();
         InputStream body = getClass().getClassLoader().getResourceAsStream("files/current_date.json");
         return get("/hello")
             .willReturn(
@@ -25,7 +28,6 @@ public class SimpleStub implements BaseStubber{
                 .withBody(new String(body.readAllBytes(), StandardCharsets.UTF_8))
                 .withTransformers("response-template")
                 );
-        
     }
     
 }
