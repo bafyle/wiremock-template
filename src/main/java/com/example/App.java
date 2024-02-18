@@ -63,6 +63,7 @@ public class App
 
     private static Arguments parseCLArguments(String[] args)
     {
+        Arguments arguments = new Arguments();
         Map<String, String> parsedArguments = new HashMap<>();
         for(int i = 0; i < args.length - 1; i+=2)
         {
@@ -71,7 +72,11 @@ public class App
         Field[] fields = Arguments.class.getDeclaredFields();
         for(Field field : fields)
         {
-            if(field.getName())
+            if(parsedArguments.containsKey(field.getName()))
+            {
+                field.setAccessible(true);
+                field.set(parsedArguments, fields);
+            }
         }
         
     }
